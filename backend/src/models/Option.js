@@ -1,18 +1,14 @@
 const mongoose = require('mongoose');
 
 const optionSchema = new mongoose.Schema({
-  optionId:{
-    type:Number,
-    required:[true]
+  option_text: {                      // was 'otion_text' (typo)
+    type: String,
+    required: [true, 'Option text is required']
   },
-  otion_text:{
-    type:String,
-    required:[true,"Mention option"],
-  },
-  is_correct:{
-    type:boolean
+  is_correct: {
+    type: Boolean,                    // was 'boolean' (lowercase = undefined in JS)
+    default: false
   }
-});
+}, { _id: true });
 
-module.exports = mongoose.model('Option',optionSchema);
-
+module.exports = optionSchema;        // exported as schema, not model

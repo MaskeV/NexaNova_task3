@@ -1,20 +1,25 @@
 const mongoose = require('mongoose');
 
 const topicSchema = new mongoose.Schema({
-    topicId:{
+  topicId: {
     type: String,
     required: [true, 'Topic ID is required'],
     unique: true,
     trim: true,
     uppercase: true,
     validate: {
-      validator: function(v) {
-        return /^T\d{2}$/.test(v);
+      validator: function (v) {
+        return /^T\d{2,}$/.test(v);
       },
       message: 'Topic ID must be in format T01, T02, etc.'
     }
-    },
-    name: {
+  },
+  subjectId: {                        // was missing — topic must know its parent subject
+    type: String,
+    required: [true, 'Subject ID is required'],
+    ref: 'Subject'
+  },
+  name: {
     type: String,
     required: [true, 'Topic name is required'],
     trim: true,
@@ -28,22 +33,22 @@ const topicSchema = new mongoose.Schema({
     minlength: [10, 'Description must be at least 10 characters'],
     maxlength: [500, 'Description cannot exceed 500 characters']
   },
-
-  question:{
-    type:[{
-        questionId:{
-            type:String,
-            required:true,
-            ref:'Questions'
-        },
-        order:{
-            type: Number,
-            default:0
-        }
+  questions: {
+    type: [{
+      questionId: {
+        type: String,
+        required: true,
+        ref: 'Question'             // was ref:'Questions' (wrong model name)
+      },
+      order: {
+        type: Number,
+        default: 0
+      }
     }],
     default: []
   }
-  
-})
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('Topic',topicSchema)
+module.exports = mongoose.model('Topic', topicSchema);
