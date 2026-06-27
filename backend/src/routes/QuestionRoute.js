@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   createQuestion, getAllQuestions, getQuestion, updateQuestion, deleteQuestion,
-} = require('../controllers/questionController');
+} = require('../controllers/QuestionController');
 const { protect, authorizeRoles } = require('../middleware/auth');
 
 router.use(protect);

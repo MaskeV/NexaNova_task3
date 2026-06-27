@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   createSubject, getAllSubjects, getSubject, updateSubject, deleteSubject, addTopicToSubject,
-} = require('../controllers/subjectController');
+} = require('../controllers/SubjectController');
 const { protect, authorizeRoles } = require('../middleware/auth');
 
 router.use(protect); // All routes require login

@@ -50,7 +50,7 @@ exports.getTodaysQuizzes = async (req, res, next) => {
 // @access  Private
 exports.getQuiz = async (req, res, next) => {
   try {
-    const quiz = await Quiz.findById(req.params.id);
+    const quiz = await Quiz.findOne({ quizId: req.params.id });
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
     // SRS: "Quiz accessible only on scheduled date and time"
@@ -78,7 +78,7 @@ exports.getQuiz = async (req, res, next) => {
 // @access  Private/Admin
 exports.updateQuiz = async (req, res, next) => {
   try {
-    const quiz = await Quiz.findByIdAndUpdate(req.params.id, req.body, {
+    const quiz = await Quiz.findOneAndUpdate({ quizId: req.params.id }, req.body, {
       new: true,
       runValidators: true,
     });
@@ -94,7 +94,7 @@ exports.updateQuiz = async (req, res, next) => {
 // @access  Private/Admin
 exports.deleteQuiz = async (req, res, next) => {
   try {
-    const quiz = await Quiz.findByIdAndDelete(req.params.id);
+    const quiz = await Quiz.findOneAndDelete({ quizId: req.params.id });
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
     res.status(200).json({ success: true, message: 'Quiz deleted' });
   } catch (error) {

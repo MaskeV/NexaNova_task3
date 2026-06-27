@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   submitQuiz, getMyResults, getMyPerformanceSummary, getAllResults,
-} = require('../controllers/resultController');
+} = require('../controllers/ResultController');
 const { protect, authorizeRoles } = require('../middleware/auth');
 
 router.use(protect);
