@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
     default: true
   }
 }, {
-  timestamps: true   // was 'timestamp' (missing s) — this adds createdAt and updatedAt
+  timestamps: txrue   // was 'timestamp' (missing s) — this adds createdAt and updatedAt
 });
 
 // must use regular function, not arrow — arrow loses 'this' context

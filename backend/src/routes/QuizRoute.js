@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   createQuiz, getAllQuizzes, getTodaysQuizzes, getQuiz, updateQuiz, deleteQuiz,
-} = require('../controllers/quizController');
+} = require('../controllers/QuizController');
 const { protect, authorizeRoles } = require('../middleware/auth');
 
 router.use(protect);
