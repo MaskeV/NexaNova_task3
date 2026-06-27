@@ -38,7 +38,7 @@ export default function Navbar() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-indigo-200 capitalize">{user?.username} · {user?.role}</span>
+          <span className="text-sm text-indigo-200 capitalize">{user?.username}  {user?.role}</span>
           <button onClick={handleLogout}
             className="text-sm px-3 py-1.5 rounded-md bg-indigo-800 hover:bg-indigo-900 transition-colors">
             Logout
