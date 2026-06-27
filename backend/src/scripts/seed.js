@@ -3,7 +3,7 @@ const User = require('../models/User');
 require('dotenv').config();
 
 const seed = async () => {
-  await mongoose.connect("mongodb+srv://nexanova_emp:Nexanova@cluster0.rp0vssq.mongodb.net/quizApplication?retryWrites=true&w=majority&appName=Cluster0");
+  await mongoose.connect(process.env.MONGODB_URI);
 
   const existing = await User.findOne({ email: 'student1@gmail.com' });
   if (existing) {
