@@ -5,53 +5,82 @@ const Question = require('../models/Question');
 // @desc    Student submits a quiz
 // @route   POST /api/results/submit
 // @access  Private/Student
-// SRS: "Final Submit button" / "Auto-submit on time expiry"
 exports.submitQuiz = async (req, res, next) => {
   try {
     const { quizId, answers, auto_submitted } = req.body;
     // answers: [{ questionId, selected_option }]
+    // questionId  — your custom string e.g. "Q01"
+    // selected_option — the option's _id (string) from the question fetch
 
-    const quiz = await Quiz.findById(quizId);
-    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+    if (!quizId || !Array.isArray(answers)) {
+      return res.status(400).json({
+        success: false,
+        message: 'quizId and answers array are required',
+      });
+    }
 
-    // Prevent duplicate submission
-    const existing = await Result.findOne({ student: req.user._id, quiz: quizId });
+    // FIX 1: use findOne with custom quizId string, not findById
+    const quiz = await Quiz.findOne({ quizId });
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    // FIX 2: use quiz._id (ObjectId) for Result references
+    const existing = await Result.findOne({
+      student: req.user._id,
+      quiz: quiz._id,
+    });
     if (existing) {
       return res.status(400).json({ success: false, message: 'Quiz already submitted' });
     }
 
-    // Fetch all questions to evaluate answers
+    // Fetch all questions for this quiz using custom questionId strings
     const questionIds = quiz.questions.map((q) => q.questionId);
     const questions = await Question.find({ questionId: { $in: questionIds } });
 
-    // Build a map for quick lookup
+    // Build lookup map: "Q01" -> question document
     const questionMap = {};
-    questions.forEach((q) => { questionMap[q.questionId] = q; });
+    questions.forEach((q) => {
+      questionMap[q.questionId] = q;
+    });
+
+    // Calculate total marks from all questions
+    const total_marks = questions.reduce((sum, q) => sum + (q.marks || 1), 0);
 
     let marks_obtained = 0;
+
     const evaluatedAnswers = answers.map((ans) => {
       const question = questionMap[ans.questionId];
       let is_correct = false;
 
       if (question && question.question_type === 'Objective') {
         const correctOption = question.options.find((o) => o.is_correct);
-        if (correctOption && correctOption.optionId === ans.selected_option) {
+
+        // FIX 3: compare using _id.toString() — Option schema has _id, not optionId
+        if (
+          correctOption &&
+          correctOption._id.toString() === ans.selected_option
+        ) {
           is_correct = true;
           marks_obtained += question.marks || 1;
         }
       }
-      // Descriptive: is_correct stays false (manual evaluation not in SRS scope)
+      // Descriptive questions: is_correct stays false (manual evaluation out of scope)
 
-      return { questionId: ans.questionId, selected_option: ans.selected_option, is_correct };
+      return {
+        questionId: ans.questionId,
+        selected_option: ans.selected_option,
+        is_correct,
+      };
     });
 
     const result = await Result.create({
       student: req.user._id,
-      quiz: quizId,
+      quiz: quiz._id,              // FIX 2: ObjectId, not the string "QZ01"
       subjectId: quiz.subjectId,
       topicId: quiz.topicId,
       quiz_date: quiz.scheduled_date,
-      total_marks: quiz.total_marks,
+      total_marks,                 // FIX 4: computed above, not from quiz.total_marks (field doesn't exist)
       marks_obtained,
       answers: evaluatedAnswers,
       status: 'Completed',
@@ -68,7 +97,6 @@ exports.submitQuiz = async (req, res, next) => {
 // @desc    Get all results for logged-in student
 // @route   GET /api/results/my
 // @access  Private/Student
-// SRS: "List of all quizzes attempted across subjects and topics"
 exports.getMyResults = async (req, res, next) => {
   try {
     const results = await Result.find({ student: req.user._id })
@@ -84,10 +112,12 @@ exports.getMyResults = async (req, res, next) => {
 // @desc    Get overall performance summary for logged-in student
 // @route   GET /api/results/my/summary
 // @access  Private/Student
-// SRS: "Total quizzes attempted, Average score, Best score"
 exports.getMyPerformanceSummary = async (req, res, next) => {
   try {
-    const results = await Result.find({ student: req.user._id, status: 'Completed' });
+    const results = await Result.find({
+      student: req.user._id,
+      status: 'Completed',
+    });
 
     const total_attempted = results.length;
 
@@ -120,7 +150,8 @@ exports.getAllResults = async (req, res, next) => {
   try {
     const results = await Result.find()
       .populate('student', 'username email')
-      .populate('quiz', 'title');
+      .populate('quiz', 'title scheduled_date');
+
     res.status(200).json({ success: true, count: results.length, results });
   } catch (error) {
     next(error);

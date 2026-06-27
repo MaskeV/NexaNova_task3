@@ -3,22 +3,22 @@ const User = require('../models/User');
 require('dotenv').config();
 
 const seed = async () => {
-  await mongoose.connect(process.env.MONGODB_URI);
+  await mongoose.connect("mongodb+srv://nexanova_emp:Nexanova@cluster0.rp0vssq.mongodb.net/quizApplication?retryWrites=true&w=majority&appName=Cluster0");
 
-  const existing = await User.findOne({ email: 'admin@gmail.com' });
+  const existing = await User.findOne({ email: 'student1@gmail.com' });
   if (existing) {
     console.log('Admin already exists');
     process.exit();
   }
 
   await User.create({
-    username: 'adminuser',
-    email: 'admin@gmail.com',
-    password: 'admin@123',
-    role: 'admin',
+    username: 'studentq',
+    email: 'student1@gmail.com',
+    password: 'Student@123',
+    role: 'student',
   });
 
-  console.log('Admin created — email: admin@quiz.com  password: admin123');
+  console.log('Success');
   process.exit();
 };
 

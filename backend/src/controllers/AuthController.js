@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const generateToken = require('../utils/generateToken');
+const {generateToken} = require('../utils/generateToken');
 
 // @desc    Login user (admin or student)
 // @route   POST /api/auth/login

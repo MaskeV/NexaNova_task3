@@ -1,8 +1,5 @@
 const mongoose = require('mongoose');
 
-// SRS: Student Result shows subject name, topic name, quiz date,
-//      total marks, marks obtained, percentage, status.
-//      Overall: total quizzes attempted, average score, best score.
 const resultSchema = new mongoose.Schema(
   {
     student: {
@@ -45,14 +42,14 @@ const resultSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Completed', 'Missed'],  // SRS: "Status (Completed / Missed)"
+      enum: ['Completed', 'Missed'],
       default: 'Missed',
     },
     // Per-question answer record
     answers: [
       {
         questionId: { type: String, ref: 'Question' },
-        selected_option: { type: Number, default: null }, // optionId chosen
+        selected_option: { type: String, default: null }, // FIX: was Number, should be String (option _id)
         is_correct: { type: Boolean, default: false },
       },
     ],
@@ -62,7 +59,7 @@ const resultSchema = new mongoose.Schema(
     },
     auto_submitted: {
       type: Boolean,
-      default: false,              // true when timer expired
+      default: false,
     },
   },
   { timestamps: true }

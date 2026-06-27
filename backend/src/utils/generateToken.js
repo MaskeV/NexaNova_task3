@@ -1,7 +1,7 @@
-import jwt from 'jsonwebtoken';
+const jwt = require('jsonwebtoken');
  
 // Generate JWT token
-export const generateToken = (userId, role) => {
+ const generateToken = (userId, role) => {
   return jwt.sign(
     { 
       id: userId,
@@ -15,10 +15,11 @@ export const generateToken = (userId, role) => {
 };
  
 // Verify JWT token
-export const verifyToken = (token) => {
+ const verifyToken = (token) => {
   try {
     return jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
     throw new Error('Invalid or expired token');
   }
 };
+module.exports = {generateToken, verifyToken};
