@@ -1,4 +1,5 @@
 const Quiz = require('../models/Quiz');
+const Result = require('../models/Result');
 
 // @desc    Admin creates a quiz
 // @route   POST /api/quizzes
@@ -24,22 +25,34 @@ exports.getAllQuizzes = async (req, res, next) => {
   }
 };
 
-// @desc    Get quizzes scheduled for TODAY (student dashboard)
+// @desc    Get quizzes scheduled for TODAY that the student hasn't attempted yet
 // @route   GET /api/quizzes/today
 // @access  Private/Student
 // SRS: "View quizzes scheduled for the current day"
 exports.getTodaysQuizzes = async (req, res, next) => {
   try {
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    // FIX: use separate Date objects to avoid mutation bug
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     const quizzes = await Quiz.find({
       scheduled_date: { $gte: startOfDay, $lte: endOfDay },
       isActive: true,
     });
 
-    res.status(200).json({ success: true, count: quizzes.length, quizzes });
+    // SRS: student should only see quizzes they haven't already submitted
+    const quizObjectIds = quizzes.map((q) => q._id);
+    const attempted = await Result.find({
+      student: req.user._id,
+      quiz: { $in: quizObjectIds },
+      status: 'Completed',
+    }).select('quiz');
+
+    const attemptedSet = new Set(attempted.map((r) => r.quiz.toString()));
+    const available = quizzes.filter((q) => !attemptedSet.has(q._id.toString()));
+
+    res.status(200).json({ success: true, count: available.length, quizzes: available });
   } catch (error) {
     next(error);
   }
@@ -63,6 +76,19 @@ exports.getQuiz = async (req, res, next) => {
         return res.status(403).json({
           success: false,
           message: 'Quiz is not accessible at this time',
+        });
+      }
+
+      // Prevent re-submission: check if student already completed this quiz
+      const existing = await Result.findOne({
+        student: req.user._id,
+        quiz: quiz._id,
+        status: 'Completed',
+      });
+      if (existing) {
+        return res.status(403).json({
+          success: false,
+          message: 'You have already submitted this quiz',
         });
       }
     }
