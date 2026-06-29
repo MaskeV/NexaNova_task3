@@ -7,6 +7,8 @@ export default function StudentResults() {
   const location = useLocation();
   const [results, setResults] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [subjects, setSubjects] = useState({});
+  const [topics, setTopics] = useState({});
   const [loading, setLoading] = useState(true);
   const justSubmitted = location.state?.fromQuiz;
 
@@ -16,12 +18,24 @@ export default function StudentResults() {
         // Mark any past quizzes the student missed before fetching results
         await api.post('/results/mark-missed').catch(() => {});
 
-        const [r, s] = await Promise.all([
+        const [r, s, subj, top] = await Promise.all([
           api.get('/results/my'),
-          api.get('/results/my/summary')
+          api.get('/results/my/summary'),
+          api.get('/subjects'),
+          api.get('/topics'),
         ]);
+
         setResults(r.data.results || []);
         setSummary(s.data.summary || null);
+
+        // Build lookup maps: id -> name for display
+        const subjMap = {};
+        (subj.data.subjects || []).forEach((s) => { subjMap[s.subjectId] = s.name; });
+        setSubjects(subjMap);
+
+        const topMap = {};
+        (top.data.topics || []).forEach((t) => { topMap[t.topicId] = t.name; });
+        setTopics(topMap);
       } catch { }
       finally { setLoading(false); }
     };
@@ -92,8 +106,18 @@ export default function StudentResults() {
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-900">{r.quiz?.title || '—'}</p>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{r.subjectId}</td>
-                    <td className="px-4 py-3 text-gray-500">{r.topicId}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {subjects[r.subjectId]
+                        ? <span title={r.subjectId}>{subjects[r.subjectId]}</span>
+                        : <span className="text-gray-400">{r.subjectId}</span>
+                      }
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {topics[r.topicId]
+                        ? <span title={r.topicId}>{topics[r.topicId]}</span>
+                        : <span className="text-gray-400">{r.topicId}</span>
+                      }
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{new Date(r.quiz_date).toLocaleDateString('en-IN')}</td>
                     <td className="px-4 py-3 text-gray-700">{r.total_marks}</td>
                     <td className="px-4 py-3 font-medium">
