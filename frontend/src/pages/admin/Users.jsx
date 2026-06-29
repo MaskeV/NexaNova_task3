@@ -12,6 +12,7 @@ export default function Users() {
   const [newPassword, setNewPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState('');
+  const [togglingId, setTogglingId] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -37,9 +38,20 @@ export default function Users() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this student?')) return;
+    if (!confirm('Delete this student? This cannot be undone.')) return;
     try { await api.delete(`/users/${id}`); fetchUsers(); }
     catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
+  };
+
+  // SRS: "Manage student login details" — allow admin to activate/deactivate accounts
+  const handleToggleActive = async (user) => {
+    setTogglingId(user._id);
+    try {
+      await api.put(`/users/${user._id}`, { isActive: !user.isActive });
+      fetchUsers();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update status');
+    } finally { setTogglingId(null); }
   };
 
   const handleResetPassword = async () => {
@@ -141,9 +153,16 @@ export default function Users() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {u.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    {/* SRS: Manage student login details — toggle active/inactive */}
+                    <button
+                      onClick={() => handleToggleActive(u)}
+                      disabled={togglingId === u._id || u.role === 'admin'}
+                      title={u.role === 'admin' ? 'Cannot deactivate admin' : (u.isActive ? 'Click to deactivate' : 'Click to activate')}
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium transition-opacity ${
+                        u.role === 'admin' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:opacity-80'
+                      } ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {togglingId === u._id ? '...' : (u.isActive ? 'Active' : 'Inactive')}
+                    </button>
                   </td>
                   <td className="px-4 py-3 flex gap-3">
                     <button
@@ -151,7 +170,9 @@ export default function Users() {
                       className="text-indigo-600 hover:text-indigo-800 text-xs font-medium">
                       Reset Password
                     </button>
-                    <button onClick={() => handleDelete(u._id)} className="text-red-600 hover:text-red-800 text-xs font-medium">Delete</button>
+                    {u.role !== 'admin' && (
+                      <button onClick={() => handleDelete(u._id)} className="text-red-600 hover:text-red-800 text-xs font-medium">Delete</button>
+                    )}
                   </td>
                 </tr>
               ))}
