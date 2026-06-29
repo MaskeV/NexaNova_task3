@@ -1,6 +1,7 @@
 const Result = require('../models/Result');
 const Quiz = require('../models/Quiz');
 const Question = require('../models/Question');
+const User = require('../models/User');
 
 // @desc    Student submits a quiz
 // @route   POST /api/results/submit
@@ -8,9 +9,6 @@ const Question = require('../models/Question');
 exports.submitQuiz = async (req, res, next) => {
   try {
     const { quizId, answers, auto_submitted } = req.body;
-    // answers: [{ questionId, selected_option }]
-    // questionId  — your custom string e.g. "Q01"
-    // selected_option — the option's _id (string) from the question fetch
 
     if (!quizId || !Array.isArray(answers)) {
       return res.status(400).json({
@@ -19,13 +17,11 @@ exports.submitQuiz = async (req, res, next) => {
       });
     }
 
-    // FIX 1: use findOne with custom quizId string, not findById
     const quiz = await Quiz.findOne({ quizId });
     if (!quiz) {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    // FIX 2: use quiz._id (ObjectId) for Result references
     const existing = await Result.findOne({
       student: req.user._id,
       quiz: quiz._id,
@@ -34,19 +30,13 @@ exports.submitQuiz = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Quiz already submitted' });
     }
 
-    // Fetch all questions for this quiz using custom questionId strings
     const questionIds = quiz.questions.map((q) => q.questionId);
     const questions = await Question.find({ questionId: { $in: questionIds } });
 
-    // Build lookup map: "Q01" -> question document
     const questionMap = {};
-    questions.forEach((q) => {
-      questionMap[q.questionId] = q;
-    });
+    questions.forEach((q) => { questionMap[q.questionId] = q; });
 
-    // Calculate total marks from all questions
     const total_marks = questions.reduce((sum, q) => sum + (q.marks || 1), 0);
-
     let marks_obtained = 0;
 
     const evaluatedAnswers = answers.map((ans) => {
@@ -55,17 +45,11 @@ exports.submitQuiz = async (req, res, next) => {
 
       if (question && question.question_type === 'Objective') {
         const correctOption = question.options.find((o) => o.is_correct);
-
-        // FIX 3: compare using _id.toString() — Option schema has _id, not optionId
-        if (
-          correctOption &&
-          correctOption._id.toString() === ans.selected_option
-        ) {
+        if (correctOption && correctOption._id.toString() === ans.selected_option) {
           is_correct = true;
           marks_obtained += question.marks || 1;
         }
       }
-      // Descriptive questions: is_correct stays false (manual evaluation out of scope)
 
       return {
         questionId: ans.questionId,
@@ -76,11 +60,11 @@ exports.submitQuiz = async (req, res, next) => {
 
     const result = await Result.create({
       student: req.user._id,
-      quiz: quiz._id,              // FIX 2: ObjectId, not the string "QZ01"
+      quiz: quiz._id,
       subjectId: quiz.subjectId,
       topicId: quiz.topicId,
       quiz_date: quiz.scheduled_date,
-      total_marks,                 // FIX 4: computed above, not from quiz.total_marks (field doesn't exist)
+      total_marks,
       marks_obtained,
       answers: evaluatedAnswers,
       status: 'Completed',
@@ -89,6 +73,69 @@ exports.submitQuiz = async (req, res, next) => {
     });
 
     res.status(201).json({ success: true, result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Mark missed quizzes for logged-in student
+//          Called when student loads their dashboard/results — marks any past quiz
+//          they didn't attempt as "Missed"
+// @route   POST /api/results/mark-missed
+// @access  Private/Student
+// SRS: "Status (Completed / Missed)"
+exports.markMissedQuizzes = async (req, res, next) => {
+  try {
+    const now = new Date();
+
+    // Get all past quizzes (scheduled_date before today)
+    const allQuizzes = await Quiz.find({ isActive: true });
+
+    // Filter quizzes whose end_time has passed
+    const pastQuizzes = allQuizzes.filter((q) => {
+      const end = q.end_time; // virtual from model
+      return end && end < now;
+    });
+
+    if (pastQuizzes.length === 0) {
+      return res.status(200).json({ success: true, marked: 0 });
+    }
+
+    // Find which ones the student already has a result for
+    const quizObjectIds = pastQuizzes.map((q) => q._id);
+    const existingResults = await Result.find({
+      student: req.user._id,
+      quiz: { $in: quizObjectIds },
+    }).select('quiz');
+
+    const attemptedQuizIds = new Set(existingResults.map((r) => r.quiz.toString()));
+
+    // Create "Missed" results for ones they haven't attempted
+    const missedQuizzes = pastQuizzes.filter((q) => !attemptedQuizIds.has(q._id.toString()));
+
+    let marked = 0;
+    for (const quiz of missedQuizzes) {
+      const questionIds = quiz.questions.map((q) => q.questionId);
+      const questions = await Question.find({ questionId: { $in: questionIds } });
+      const total_marks = questions.reduce((sum, q) => sum + (q.marks || 1), 0);
+
+      await Result.create({
+        student: req.user._id,
+        quiz: quiz._id,
+        subjectId: quiz.subjectId,
+        topicId: quiz.topicId,
+        quiz_date: quiz.scheduled_date,
+        total_marks,
+        marks_obtained: 0,
+        answers: [],
+        status: 'Missed',
+        submitted_at: null,
+        auto_submitted: false,
+      });
+      marked++;
+    }
+
+    res.status(200).json({ success: true, marked });
   } catch (error) {
     next(error);
   }
