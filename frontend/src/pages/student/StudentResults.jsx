@@ -13,6 +13,9 @@ export default function StudentResults() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
+        // Mark any past quizzes the student missed before fetching results
+        await api.post('/results/mark-missed').catch(() => {});
+
         const [r, s] = await Promise.all([
           api.get('/results/my'),
           api.get('/results/my/summary')
@@ -93,9 +96,14 @@ export default function StudentResults() {
                     <td className="px-4 py-3 text-gray-500">{r.topicId}</td>
                     <td className="px-4 py-3 text-gray-500">{new Date(r.quiz_date).toLocaleDateString('en-IN')}</td>
                     <td className="px-4 py-3 text-gray-700">{r.total_marks}</td>
-                    <td className="px-4 py-3 font-medium">{r.marks_obtained}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {r.status === 'Missed' ? '—' : r.marks_obtained}
+                    </td>
                     <td className="px-4 py-3">
-                      <span className={`font-bold text-base ${pctColor(r.percentage)}`}>{r.percentage}%</span>
+                      {r.status === 'Missed'
+                        ? <span className="text-gray-400 text-sm">—</span>
+                        : <span className={`font-bold text-base ${pctColor(r.percentage)}`}>{r.percentage}%</span>
+                      }
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${r.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
