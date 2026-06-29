@@ -9,6 +9,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [startingId, setStartingId] = useState(null);
 
   // Change password modal state
   const [showChangePwd, setShowChangePwd] = useState(false);
@@ -37,6 +38,24 @@ export default function StudentDashboard() {
     } catch (err) {
       setPwdError(err.response?.data?.message || 'Failed to change password');
     } finally { setPwdLoading(false); }
+  };
+
+  const handleStartQuiz = async (quiz) => {
+    setStartingId(quiz.quizId);
+    try {
+      // Pre-check: ensure quiz is still accessible (time window, not already submitted)
+      await api.get(`/quizzes/${quiz.quizId}`);
+      navigate(`/student/quiz/${quiz.quizId}`);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Cannot start quiz';
+      alert(msg);
+      // Refresh the quiz list in case this quiz is no longer available
+      api.get('/quizzes/today')
+        .then(({ data }) => setQuizzes(data.quizzes || data.data || []))
+        .catch(() => {});
+    } finally {
+      setStartingId(null);
+    }
   };
 
   return (
@@ -95,7 +114,7 @@ export default function StudentDashboard() {
 
         <div className="card p-6 mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-100">
           <h2 className="font-semibold text-indigo-900 mb-1">Today's Quizzes</h2>
-          <p className="text-indigo-600 text-sm">Quizzes scheduled for today. Attempt them before they expire.</p>
+          <p className="text-indigo-600 text-sm">Quizzes scheduled for today that you haven't attempted yet.</p>
         </div>
 
         {loading ? (
@@ -103,8 +122,8 @@ export default function StudentDashboard() {
         ) : quizzes.length === 0 ? (
           <div className="card p-12 text-center">
             <div className="text-5xl mb-3">📅</div>
-            <p className="font-semibold text-gray-700">No quizzes today</p>
-            <p className="text-gray-400 text-sm mt-1">Check back tomorrow or view your past results</p>
+            <p className="font-semibold text-gray-700">No pending quizzes today</p>
+            <p className="text-gray-400 text-sm mt-1">You've completed all of today's quizzes, or none are scheduled</p>
             <Link to="/student/results" className="btn-secondary mt-4 text-sm inline-flex">View My Results</Link>
           </div>
         ) : (
@@ -124,9 +143,10 @@ export default function StudentDashboard() {
                   </div>
                 </div>
                 <button
-                  onClick={() => navigate(`/student/quiz/${quiz.quizId}`)}
+                  onClick={() => handleStartQuiz(quiz)}
+                  disabled={startingId === quiz.quizId}
                   className="btn-primary text-sm ml-4">
-                  Start Quiz →
+                  {startingId === quiz.quizId ? 'Loading...' : 'Start Quiz →'}
                 </button>
               </div>
             ))}
