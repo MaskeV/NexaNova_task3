@@ -4,10 +4,14 @@ import api from '../../api/client';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
-  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'student' });
+  const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [resetTarget, setResetTarget] = useState(null); // { id, username }
+  const [newPassword, setNewPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   const fetchUsers = async () => {
     try {
@@ -25,7 +29,7 @@ export default function Users() {
     try {
       await api.post('/users', form);
       setSuccess('Student account created');
-      setForm({ username: '', email: '', password: '', role: 'student' });
+      setForm({ username: '', email: '', password: '' });
       fetchUsers();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create student');
@@ -38,11 +42,28 @@ export default function Users() {
     catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
   };
 
+  const handleResetPassword = async () => {
+    setResetError('');
+    if (!newPassword || newPassword.length < 6) {
+      setResetError('Password must be at least 6 characters'); return;
+    }
+    setResetLoading(true);
+    try {
+      await api.put(`/users/${resetTarget.id}`, { password: newPassword });
+      setResetTarget(null);
+      setNewPassword('');
+      alert(`Password reset for ${resetTarget.username}`);
+    } catch (err) {
+      setResetError(err.response?.data?.message || 'Reset failed');
+    } finally { setResetLoading(false); }
+  };
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
         <h1 className="text-xl font-bold text-gray-900 mb-6">Students</h1>
 
+        {/* Create student form */}
         <div className="card p-6 mb-6">
           <h2 className="font-semibold text-gray-700 mb-4">Add Student Account</h2>
           {error && <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
@@ -71,6 +92,33 @@ export default function Users() {
           </form>
         </div>
 
+        {/* Reset password modal */}
+        {resetTarget && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+              <h3 className="font-semibold text-gray-900 mb-1">Reset Password</h3>
+              <p className="text-sm text-gray-500 mb-4">Set a new password for <span className="font-medium text-gray-700">{resetTarget.username}</span></p>
+              {resetError && <p className="text-sm text-red-600 mb-3">{resetError}</p>}
+              <input
+                type="password"
+                className="input mb-4"
+                placeholder="New password (min 6 chars)"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                minLength={6}
+              />
+              <div className="flex gap-3">
+                <button onClick={handleResetPassword} disabled={resetLoading} className="btn-primary flex-1 text-sm">
+                  {resetLoading ? 'Resetting...' : 'Reset Password'}
+                </button>
+                <button onClick={() => { setResetTarget(null); setNewPassword(''); setResetError(''); }}
+                  className="btn-secondary flex-1 text-sm">Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Students table */}
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -97,7 +145,12 @@ export default function Users() {
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 flex gap-3">
+                    <button
+                      onClick={() => { setResetTarget({ id: u._id, username: u.username }); setNewPassword(''); setResetError(''); }}
+                      className="text-indigo-600 hover:text-indigo-800 text-xs font-medium">
+                      Reset Password
+                    </button>
                     <button onClick={() => handleDelete(u._id)} className="text-red-600 hover:text-red-800 text-xs font-medium">Delete</button>
                   </td>
                 </tr>
