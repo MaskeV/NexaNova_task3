@@ -63,7 +63,24 @@ const quizSchema = new mongoose.Schema({
     default: true
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Virtual: compute start_time and end_time from scheduled_date + scheduled_time + duration
+quizSchema.virtual('start_time').get(function () {
+  if (!this.scheduled_date || !this.scheduled_time) return null;
+  const d = new Date(this.scheduled_date);
+  const [h, m] = this.scheduled_time.split(':').map(Number);
+  d.setHours(h, m, 0, 0);
+  return d;
+});
+
+quizSchema.virtual('end_time').get(function () {
+  const start = this.start_time;
+  if (!start) return null;
+  return new Date(start.getTime() + (this.duration_minutes || 30) * 60 * 1000);
 });
 
 module.exports = mongoose.model('Quiz', quizSchema);
