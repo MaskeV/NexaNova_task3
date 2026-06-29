@@ -10,12 +10,34 @@ export default function StudentDashboard() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Change password modal state
+  const [showChangePwd, setShowChangePwd] = useState(false);
+  const [pwdForm, setPwdForm] = useState({ currentPassword: '', newPassword: '' });
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState('');
+
   useEffect(() => {
     api.get('/quizzes/today')
       .then(({ data }) => setQuizzes(data.quizzes || data.data || []))
       .catch(() => setQuizzes([]))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPwdError(''); setPwdSuccess('');
+    if (pwdForm.newPassword.length < 6) { setPwdError('New password must be at least 6 characters'); return; }
+    setPwdLoading(true);
+    try {
+      await api.put('/auth/change-password', pwdForm);
+      setPwdSuccess('Password changed successfully!');
+      setPwdForm({ currentPassword: '', newPassword: '' });
+      setTimeout(() => { setShowChangePwd(false); setPwdSuccess(''); }, 1500);
+    } catch (err) {
+      setPwdError(err.response?.data?.message || 'Failed to change password');
+    } finally { setPwdLoading(false); }
+  };
 
   return (
     <Layout>
@@ -27,10 +49,49 @@ export default function StudentDashboard() {
               {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <Link to="/student/results" className="btn-secondary text-sm gap-2">
-            📊 My Results
-          </Link>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setShowChangePwd(true); setPwdError(''); setPwdSuccess(''); }}
+              className="btn-secondary text-sm">
+              🔑 Change Password
+            </button>
+            <Link to="/student/results" className="btn-secondary text-sm gap-2">
+              📊 My Results
+            </Link>
+          </div>
         </div>
+
+        {/* Change Password Modal */}
+        {showChangePwd && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Change Password</h3>
+              {pwdError && <p className="text-sm text-red-600 mb-3">{pwdError}</p>}
+              {pwdSuccess && <p className="text-sm text-green-600 mb-3">{pwdSuccess}</p>}
+              <form onSubmit={handleChangePassword} className="space-y-3">
+                <div>
+                  <label className="label text-xs">Current Password</label>
+                  <input type="password" className="input" placeholder="Current password"
+                    value={pwdForm.currentPassword}
+                    onChange={e => setPwdForm(f => ({ ...f, currentPassword: e.target.value }))} required />
+                </div>
+                <div>
+                  <label className="label text-xs">New Password</label>
+                  <input type="password" className="input" placeholder="Min 6 characters"
+                    value={pwdForm.newPassword}
+                    onChange={e => setPwdForm(f => ({ ...f, newPassword: e.target.value }))} required minLength={6} />
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button type="submit" disabled={pwdLoading} className="btn-primary flex-1 text-sm">
+                    {pwdLoading ? 'Saving...' : 'Change Password'}
+                  </button>
+                  <button type="button"
+                    onClick={() => { setShowChangePwd(false); setPwdForm({ currentPassword: '', newPassword: '' }); setPwdError(''); }}
+                    className="btn-secondary flex-1 text-sm">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         <div className="card p-6 mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-100">
           <h2 className="font-semibold text-indigo-900 mb-1">Today's Quizzes</h2>
