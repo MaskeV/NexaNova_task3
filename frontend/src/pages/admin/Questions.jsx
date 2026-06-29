@@ -19,6 +19,8 @@ export default function Questions() {
     options: [emptyOption(), emptyOption(), emptyOption(), emptyOption()],
   });
 
+  const isObjective = form.question_type === 'Objective';
+
   const fetchAll = async () => {
     try {
       const [q, s, t] = await Promise.all([
@@ -38,6 +40,15 @@ export default function Questions() {
     } else setFilteredTopics([]);
   }, [form.subjectId, topics]);
 
+  // Reset options when switching type
+  const handleTypeChange = (type) => {
+    setForm(f => ({
+      ...f,
+      question_type: type,
+      options: [emptyOption(), emptyOption(), emptyOption(), emptyOption()],
+    }));
+  };
+
   const setOption = (i, field, value) => {
     const opts = [...form.options];
     if (field === 'is_correct') {
@@ -51,13 +62,34 @@ export default function Questions() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(''); setSuccess('');
-    if (!form.options.some(o => o.is_correct)) {
-      setError('Please mark one option as correct'); return;
+
+    if (isObjective) {
+      // Validate all 4 options are filled
+      const emptyOpts = form.options.filter(o => !o.option_text.trim());
+      if (emptyOpts.length > 0) {
+        setError('Please fill in all 4 option texts for an Objective question');
+        return;
+      }
+      if (!form.options.some(o => o.is_correct)) {
+        setError('Please mark one option as correct');
+        return;
+      }
     }
+
     setLoading(true);
     try {
-      const payload = { ...form, marks: Number(form.marks) };
-      if (!payload.code_snippet) delete payload.code_snippet;
+      const payload = {
+        questionId: form.questionId,
+        subjectId: form.subjectId,
+        topicId: form.topicId,
+        question_text: form.question_text,
+        question_type: form.question_type,
+        marks: Number(form.marks),
+      };
+      if (form.code_snippet.trim()) payload.code_snippet = form.code_snippet;
+      // Only send options for Objective questions
+      if (isObjective) payload.options = form.options;
+
       await api.post('/questions', payload);
       setSuccess('Question created successfully');
       setForm({
@@ -112,9 +144,9 @@ export default function Questions() {
               <div>
                 <label className="label">Type</label>
                 <select className="input" value={form.question_type}
-                  onChange={e => setForm(f => ({ ...f, question_type: e.target.value }))}>
-                  <option>Objective</option>
-                  <option>Descriptive</option>
+                  onChange={e => handleTypeChange(e.target.value)}>
+                  <option value="Objective">Objective</option>
+                  <option value="Descriptive">Descriptive</option>
                 </select>
               </div>
             </div>
@@ -131,22 +163,32 @@ export default function Questions() {
                 value={form.code_snippet} onChange={e => setForm(f => ({ ...f, code_snippet: e.target.value }))} />
             </div>
 
-            <div>
-              <label className="label mb-2">Options — select the correct answer</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {form.options.map((opt, i) => (
-                  <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-colors ${opt.is_correct ? 'border-green-400 bg-green-50' : 'border-gray-200'}`}>
-                    <input type="radio" name="correct" checked={opt.is_correct}
-                      onChange={() => setOption(i, 'is_correct', true)}
-                      className="accent-green-500 w-4 h-4 shrink-0" />
-                    <input className="flex-1 text-sm border-0 bg-transparent outline-none"
-                      placeholder={`Option ${i + 1}`} value={opt.option_text}
-                      onChange={e => setOption(i, 'option_text', e.target.value)} required />
-                    {opt.is_correct && <span className="text-xs text-green-600 font-medium shrink-0">Correct</span>}
-                  </div>
-                ))}
+            {/* Options — only shown for Objective questions */}
+            {isObjective ? (
+              <div>
+                <label className="label mb-2">Options — select the correct answer</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {form.options.map((opt, i) => (
+                    <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-colors ${opt.is_correct ? 'border-green-400 bg-green-50' : 'border-gray-200'}`}>
+                      <input type="radio" name="correct" checked={opt.is_correct}
+                        onChange={() => setOption(i, 'is_correct', true)}
+                        className="accent-green-500 w-4 h-4 shrink-0" />
+                      <input
+                        className="flex-1 text-sm border-0 bg-transparent outline-none"
+                        placeholder={`Option ${i + 1}`}
+                        value={opt.option_text}
+                        onChange={e => setOption(i, 'option_text', e.target.value)}
+                      />
+                      {opt.is_correct && <span className="text-xs text-green-600 font-medium shrink-0">Correct</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 text-sm">
+                📝 Descriptive question — no options needed. Students will answer in their own words.
+              </div>
+            )}
 
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? 'Creating...' : 'Create Question'}
